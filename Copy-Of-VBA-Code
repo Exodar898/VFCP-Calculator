@@ -1,0 +1,634 @@
+Sub importData()
+
+Worksheets("VFCP-Table").Cells.Clear
+Worksheets("int365-313").Cells.Clear
+Worksheets("int366-313").Cells.Clear
+Worksheets("int365-1424").Cells.Clear
+Worksheets("int366-1424").Cells.Clear
+
+Dim FEED_INPUT As Worksheet, FeedFile As String, i As Integer
+Dim int365_313 As Worksheet, int365_313Feed As String
+Dim int366_313 As Worksheet, int366_313Feed As String
+Dim int365_1424 As Worksheet, int365_1424Feed As String
+Dim int366_1424 As Worksheet, int366_1424Feed As String
+    
+    
+Set FEED_INPUT = ActiveWorkbook.Worksheets("VFCP-Table") 'set to current worksheet name
+
+Set fso = CreateObject("Scripting.FileSystemObject")
+
+FeedFile = fso.GetFile("C:\Users\jaloof\Documents\Scripting\VFCPdata.TXT")
+
+FEED_INPUT.Range("A1") = "End Date of Period"
+FEED_INPUT.Range("B1") = "(a)(2) Underpayment Rates"
+FEED_INPUT.Range("C1") = "(c)(1) Underpayment Rates"
+
+
+With FEED_INPUT.QueryTables.Add(Connection:="TEXT;" & FeedFile, Destination:=FEED_INPUT.Range("A2"))
+     .TextFileParseType = xlDelimited
+     .TextFileCommaDelimiter = True
+     .Refresh
+End With
+
+For i = 2 To 5000
+    If FEED_INPUT.Range("A" & i) = Empty Then Exit For
+    FEED_INPUT.Range("A" & i) = DateAdd("m", (-3 * (i - 1)), "03/31/2020")
+Next i
+
+Set int365_313 = ActiveWorkbook.Worksheets("int365-313")
+Set int366_313 = ActiveWorkbook.Worksheets("int366-313")
+Set int365_1424 = ActiveWorkbook.Worksheets("int365-1424")
+Set int366_1424 = ActiveWorkbook.Worksheets("int366-1424")
+
+int365_313Feed = fso.GetFile("C:\Users\jaloof\Documents\Scripting\irsInterest365-313.TXT")
+int366_313Feed = fso.GetFile("C:\Users\jaloof\Documents\Scripting\irsInterest366-313.TXT")
+int365_1424Feed = fso.GetFile("C:\Users\jaloof\Documents\Scripting\irsInterest365-1424.TXT")
+int366_1424Feed = fso.GetFile("C:\Users\jaloof\Documents\Scripting\irsInterest366-1424.TXT")
+
+' int365-313 import
+
+With int365_313.QueryTables.Add(Connection:="TEXT;" & int365_313Feed, Destination:=int365_313.Range("A1"))
+     .TextFileParseType = xlDelimited
+     .TextFileSpaceDelimiter = True
+     .Refresh
+End With
+
+' int366-313 import
+
+With int366_313.QueryTables.Add(Connection:="TEXT;" & int366_313Feed, Destination:=int366_313.Range("A1"))
+     .TextFileParseType = xlDelimited
+     .TextFileSpaceDelimiter = True
+     .Refresh
+End With
+
+' int365-1424 import
+
+With int365_1424.QueryTables.Add(Connection:="TEXT;" & int365_1424Feed, Destination:=int365_1424.Range("A1"))
+     .TextFileParseType = xlDelimited
+     .TextFileSpaceDelimiter = True
+     .Refresh
+End With
+
+' int366-1424 import
+
+With int366_1424.QueryTables.Add(Connection:="TEXT;" & int366_1424Feed, Destination:=int366_1424.Range("A1"))
+     .TextFileParseType = xlDelimited
+     .TextFileSpaceDelimiter = True
+     .Refresh
+End With
+
+int365_313.Columns("A:A").Delete
+int366_313.Columns("A:A").Delete
+int365_1424.Columns("A:A").Delete
+int366_1424.Columns("A:A").Delete
+
+int365_313.Columns("C:D").Delete
+int366_313.Columns("C:E").Delete
+int365_1424.Columns("C:D").Delete
+int366_1424.Columns("C:E").Delete
+
+End Sub
+
+Sub clearFields()
+
+For i = 0 To 3
+
+Worksheets("Calc").Range("H" & (5 + 2 * i)).Clear
+Worksheets("Calc").Range("H" & (5 + 2 * i)).Style = "Neutral"
+Worksheets("Calc").Range("H" & (5 + 2 * i)).Borders.LineStyle = xlContinuous
+
+Next i
+
+Worksheets("Calc").Range("N5:N9").Clear
+Worksheets("Calc").Range("N5:N9").Style = "Neutral"
+Worksheets("Calc").Range("N5:N9").Borders.LineStyle = xlContinuous
+
+End Sub
+
+Function doCalc(Principal As Double, LossDate As Date, RecoveryDate As Date, PaymentDate As Date) As Double
+
+Dim CalcSheet As Worksheet, origPrincipal As Double, Amount As Double, Outstanding As Double
+Dim day As Integer, month As Integer, year As Integer, VFCPTable As Worksheet, i As Integer, a As Integer, Period As Integer, Rate As Double, tableIndex As String
+
+Dim March As Date, Jun As Date, Sept As Date, Dec As Date, LastDec As Date
+
+Dim NormalSub13 As Worksheet, NormalAbove13 As Worksheet, LeapSub13 As Worksheet, LeapAbove13 As Worksheet
+
+Set CalcSheet = ActiveWorkbook.Worksheets("Calc")
+Set VFCPTable = ActiveWorkbook.Worksheets("VFCP-Table")
+Set NormalSub13 = ActiveWorkbook.Worksheets("int365-313")
+Set NormalAbove13 = ActiveWorkbook.Worksheets("int365-1424")
+Set LeapSub13 = ActiveWorkbook.Worksheets("int366-313")
+Set LeapAbove13 = ActiveWorkbook.Worksheets("int366-1424")
+
+origPrincipal = Principal
+
+CalcSheet.Range("N5") = Principal
+CalcSheet.Range("N6") = LossDate
+CalcSheet.Range("N7") = RecoveryDate
+CalcSheet.Range("N8") = PaymentDate
+
+Amount = 0
+
+day = DatePart("d", LossDate)
+month = DatePart("m", LossDate)
+year = DatePart("yyyy", LossDate)
+
+' Accrue interest between LossDate and RecoveryDate
+For i = year To 2200
+
+    March = CDate("03/31/" & i)
+    Jun = CDate("06/30/" & i)
+    Sept = CDate("09/30/" & i)
+    Dec = CDate("12/31/" & i)
+    LastDec = CDate("12/31/" & (i - 1))
+    
+    If (RecoveryDate > LastDec) Then
+    
+        If (month < 4 Or i > year) Then
+             
+            If ((RecoveryDate >= March) And (March >= LossDate) And (LossDate >= LastDec)) Then
+                Period = DateDiff("d", LossDate, March)
+            ElseIf ((March >= RecoveryDate) And (RecoveryDate >= LastDec) And (March >= LossDate) And (LossDate >= LastDec)) Then
+                Period = DateDiff("d", LossDate, RecoveryDate)
+            ElseIf ((March >= RecoveryDate) And (RecoveryDate >= LastDec) And (LastDec >= LossDate)) Then
+                Period = DateDiff("d", LastDec, RecoveryDate)
+            Else
+                Period = DateDiff("d", LastDec, March)
+            End If
+    
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (i - 1901), "12/31/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(i, Rate)
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate >= 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate < 0.14) And ((i Mod 4) = 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                Else
+                    Amount = (Principal * Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                End If
+            End If
+                
+        End If
+    
+    End If
+    
+    If (RecoveryDate > March) Then
+    
+        If (month < 7 Or i > year) Then
+            
+            If ((RecoveryDate >= Jun) And (Jun >= LossDate) And (LossDate >= March)) Then
+                Period = DateDiff("d", LossDate, Jun)
+            ElseIf ((Jun >= RecoveryDate) And (RecoveryDate >= March) And (Jun >= LossDate) And (LossDate >= March)) Then
+                Period = DateDiff("d", LossDate, RecoveryDate)
+            ElseIf ((Jun >= RecoveryDate) And (RecoveryDate >= March) And (March >= LossDate)) Then
+                Period = DateDiff("d", March, RecoveryDate)
+            Else
+                Period = DateDiff("d", March, Jun)
+            End If
+    
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (i - 1900), "3/31/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(i, Rate)
+            
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate >= 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate < 0.14) And ((i Mod 4) = 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                Else
+                    Amount = (Principal * Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                End If
+            End If
+            
+        End If
+        
+    End If
+    
+    If (RecoveryDate > Jun) Then
+    
+        If (month < 10 Or i > year) Then
+        
+            If ((RecoveryDate >= Sept) And (Sept >= LossDate) And (LossDate >= Jun)) Then
+                Period = DateDiff("d", LossDate, Sept)
+            ElseIf ((Sept >= RecoveryDate) And (RecoveryDate >= Jun) And (Jun >= LossDate)) Then
+                Period = DateDiff("d", Jun, RecoveryDate)
+            ElseIf ((Sept >= RecoveryDate) And (RecoveryDate >= Jun) And (Sept >= LossDate) And (LossDate >= Jun)) Then
+                Period = DateDiff("d", LossDate, RecoveryDate)
+            Else
+                Period = DateDiff("d", Jun, Sept)
+            End If
+            
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (i - 1900), "6/30/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(i, Rate)
+            
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate >= 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate < 0.14) And ((i Mod 4) = 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                Else
+                    Amount = (Principal * Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                End If
+            End If
+        End If
+        
+    End If
+    
+    If (RecoveryDate > Sept) Then
+    
+        ' No 12/31/2019 Data Yet
+        'If (i <> 2019) Then
+                
+            If ((RecoveryDate >= Dec) And (Dec >= LossDate) And (LossDate >= Sept)) Then
+                Period = DateDiff("d", LossDate, Dec)
+            ElseIf ((Dec >= RecoveryDate) And (RecoveryDate >= Sept) And (Dec >= LossDate) And (LossDate >= Sept)) Then
+                Period = DateDiff("d", LossDate, RecoveryDate)
+            ElseIf ((Dec >= RecoveryDate) And (RecoveryDate >= Sept) And (Sept >= LossDate)) Then
+                Period = DateDiff("d", Sept, RecoveryDate)
+            Else
+                Period = DateDiff("d", Sept, Dec)
+            End If
+            
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (i - 1900), "9/30/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(i, Rate)
+        
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate >= 0.14) And ((i Mod 4) <> 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                ElseIf ((Rate < 0.14) And ((i Mod 4) = 0)) Then
+                    Amount = (Principal * Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                Else
+                    Amount = (Principal * Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)) + Amount
+                    Principal = origPrincipal + Amount
+                End If
+            End If
+                
+        'End If
+        
+    End If
+    
+Next i
+
+' Accrue interest between Recovery and Payment
+
+day = DatePart("d", RecoveryDate)
+month = DatePart("m", RecoveryDate)
+year = DatePart("yyyy", RecoveryDate)
+
+For a = year To 2200
+
+    March = CDate("03/31/" & a)
+    Jun = CDate("06/30/" & a)
+    Sept = CDate("09/30/" & a)
+    Dec = CDate("12/31/" & a)
+    LastDec = CDate("12/31/" & (a - 1))
+    
+    If (PaymentDate > LastDec) Then
+    
+        If (month < 4 Or a > year) Then
+             
+            If ((PaymentDate >= March) And (March >= RecoveryDate) And (RecoveryDate >= LastDec)) Then
+                Period = DateDiff("d", RecoveryDate, March)
+            ElseIf ((March >= PaymentDate) And (PaymentDate >= LastDec) And (March >= RecoveryDate) And (RecoveryDate >= LastDec)) Then
+                Period = DateDiff("d", RecoveryDate, PaymentDate)
+            ElseIf ((March >= PaymentDate) And (PaymentDate >= LastDec) And (LastDec >= RecoveryDate)) Then
+                Period = DateDiff("d", LastDec, PaymentDate)
+            Else
+                Period = DateDiff("d", LastDec, March)
+            End If
+    
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (a - 1901), "12/31/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(a, Rate)
+    
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate >= 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate < 0.14) And ((a Mod 4) = 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)))
+                Else
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)))
+                End If
+            End If
+                
+        End If
+    
+    End If
+    
+    If (PaymentDate > March) Then
+    
+        If (month < 7 Or a > year) Then
+            
+            If ((PaymentDate >= Jun) And (Jun >= RecoveryDate) And (RecoveryDate >= March)) Then
+                Period = DateDiff("d", RecoveryDate, Jun)
+            ElseIf ((Jun >= PaymentDate) And (PaymentDate >= March) And (Jun >= RecoveryDate) And (RecoveryDate >= March)) Then
+                Period = DateDiff("d", RecoveryDate, PaymentDate)
+            ElseIf ((Jun >= PaymentDate) And (PaymentDate >= March) And (March >= RecoveryDate)) Then
+                Period = DateDiff("d", March, PaymentDate)
+            Else
+                Period = DateDiff("d", March, Jun)
+            End If
+    
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (a - 1900), "3/31/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(a, Rate)
+            
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate >= 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate < 0.14) And ((a Mod 4) = 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)))
+                Else
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)))
+                End If
+            End If
+        End If
+        
+    End If
+    
+    If (PaymentDate > Jun) Then
+    
+        If (month < 10 Or a > year) Then
+        
+            If ((PaymentDate >= Sept) And (Sept >= RecoveryDate) And (RecoveryDate >= Jun)) Then
+                Period = DateDiff("d", RecoveryDate, Sept)
+            ElseIf ((Sept >= PaymentDate) And (PaymentDate >= Jun) And (Jun >= RecoveryDate)) Then
+                Period = DateDiff("d", Jun, PaymentDate)
+            ElseIf ((Sept >= PaymentDate) And (PaymentDate >= Jun) And (Sept >= RecoveryDate) And (RecoveryDate >= Jun)) Then
+                Period = DateDiff("d", RecoveryDate, PaymentDate)
+            Else
+                Period = DateDiff("d", Jun, Sept)
+            End If
+            
+            Rate = Application.VLookup(CLng(DateAdd("yyyy", (a - 1900), "6/30/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+            tableIndex = findTableIndex(a, Rate)
+    
+    
+            If (Period > 0) Then
+                If ((Rate < 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate >= 0.14) And ((a Mod 4) <> 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)))
+                ElseIf ((Rate < 0.14) And ((a Mod 4) = 0)) Then
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)))
+                Else
+                    Amount = (Amount * (1 + Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)))
+                End If
+            End If
+            
+        End If
+        
+    End If
+    
+    If (PaymentDate > Sept) Then
+    
+        ' No 12/31/2019 Data Yet
+        'If (a <> 2019) Then
+            If (month < 12 Or a > year) Then
+                
+                If ((PaymentDate >= Dec) And (Dec >= RecoveryDate) And (RecoveryDate >= Sept)) Then
+                    Period = DateDiff("d", RecoveryDate, Dec)
+                ElseIf ((Dec >= PaymentDate) And (PaymentDate >= Sept) And (Dec >= RecoveryDate) And (RecoveryDate >= Sept)) Then
+                    Period = DateDiff("d", RecoveryDate, PaymentDate)
+                ElseIf ((Dec >= PaymentDate) And (PaymentDate >= Sept) And (Sept >= RecoveryDate)) Then
+                    Period = DateDiff("d", Sept, PaymentDate)
+                Else
+                    Period = DateDiff("d", Sept, Dec)
+                End If
+                
+                Rate = Application.VLookup(CLng(DateAdd("yyyy", (a - 1900), "9/30/1900")), VFCPTable.Range("A1:C1000"), 2, False)
+                tableIndex = findTableIndex(a, Rate)
+        
+                If (Period > 0) Then
+                    If ((Rate < 0.14) And ((a Mod 4) <> 0)) Then
+                        Amount = (Amount * (1 + Application.VLookup(Period, NormalSub13.Range(tableIndex), 2, False)))
+                    ElseIf ((Rate >= 0.14) And ((a Mod 4) <> 0)) Then
+                        Amount = (Amount * (1 + Application.VLookup(Period, NormalAbove13.Range(tableIndex), 2, False)))
+                    ElseIf ((Rate < 0.14) And ((a Mod 4) = 0)) Then
+                        Amount = (Amount * (1 + Application.VLookup(Period, LeapSub13.Range(tableIndex), 2, False)))
+                    Else
+                        Amount = (Amount * (1 + Application.VLookup(Period, LeapAbove13.Range(tableIndex), 2, False)))
+                    End If
+                End If
+                
+            End If
+        'End If
+        
+    End If
+    
+Next a
+
+'Look up Excel VBA Round function bankers rounding to understand the "+ 1E-23" portion
+'doCalc = Amount
+doCalc = Round(Amount + 1E-23, 2)
+
+End Function
+
+Function findTableIndex(i As Integer, Rate As Double) As String
+    
+Dim tableIndex As String
+    
+'I'm so sorry
+Dim Normal3 As String, Normal4 As String, Normal5 As String, Normal6 As String, Normal7 As String, Normal8 As String, Normal9 As String, Normal10 As String
+Dim Normal11 As String, Normal12 As String, Normal13 As String, Normal14 As String, Normal15 As String, Normal16 As String, Normal17 As String
+Dim Normal18 As String, Normal19 As String, Normal20 As String, Normal21 As String, Normal22 As String, Normal23 As String, Normal24 As String
+
+Dim Leap3 As String, Leap4 As String, Leap5 As String, Leap6 As String, Leap7 As String, Leap8 As String, Leap9 As String, Leap10 As String, Leap11 As String
+Dim Leap12 As String, Leap13 As String, Leap14 As String, Leap15 As String, Leap16 As String, Leap17 As String, Leap18 As String, Leap19 As String
+Dim Leap20 As String, Leap21 As String, Leap22 As String, Leap23 As String, Leap24 As String
+
+Normal3 = "A7:B98": Normal4 = "A104:B196": Normal5 = "A202:B293": Normal6 = "A299:B390": Normal7 = "A397:B488": Normal8 = "A494:B585": Normal9 = "A591:B682"
+Normal10 = "A688:B779": Normal11 = "A784:B875": Normal12 = "A880:B971": Normal13 = "A977:B1068": Normal14 = "A6:B92": Normal15 = "A103:B194": Normal16 = "A200:B291"
+Normal17 = "A297:B388": Normal18 = "A394:B485": Normal19 = "A490:B581": Normal20 = "A587:B678": Normal21 = "A683:B774": Normal22 = "A780:B871": Normal23 = "A876:B967"
+Normal24 = "A972:B1063"
+
+Leap3 = "A6:B97": Leap4 = "A103:B194": Leap5 = "A199:B290": Leap6 = "A296:B387": Leap7 = "A392:B483": Leap8 = "A488:B579": Leap9 = "A584:B675"
+Leap10 = "A680:B771": Leap11 = "A776:B867": Leap12 = "A872:B963": Leap13 = "A968:B1059": Leap14 = "A6:B97": Leap15 = "A102:B193": Leap16 = "A198:B289"
+Leap17 = "A294:B385": Leap18 = "A390:B481": Leap19 = "A486:B577": Leap20 = "A582:B673": Leap21 = "A679:B770": Leap22 = "A775:B866": Leap23 = "A871:B962"
+Leap24 = "A967:B1058"
+    
+    If (i Mod 4 <> 0) Then
+            If (Rate = 0.03) Then
+                tableIndex = Normal3
+            ElseIf (Rate = 0.04) Then
+                tableIndex = Normal4
+            ElseIf (Rate = 0.05) Then
+                tableIndex = Normal5
+            ElseIf (Rate = 0.06) Then
+                tableIndex = Normal6
+            ElseIf (Rate = 0.07) Then
+                tableIndex = Normal7
+            ElseIf (Rate = 0.08) Then
+                tableIndex = Normal8
+            ElseIf (Rate = 0.09) Then
+                tableIndex = Normal9
+            ElseIf (Rate = 0.1) Then
+                tableIndex = Normal10
+            ElseIf (Rate = 0.11) Then
+                tableIndex = Normal11
+            ElseIf (Rate = 0.12) Then
+                tableIndex = Normal12
+            ElseIf (Rate = 0.13) Then
+                tableIndex = Normal13
+            ElseIf (Rate = 0.14) Then
+                tableIndex = Normal14
+            ElseIf (Rate = 0.15) Then
+                tableIndex = Normal15
+            ElseIf (Rate = 0.16) Then
+                tableIndex = Normal16
+            ElseIf (Rate = 0.17) Then
+                tableIndex = Normal17
+            ElseIf (Rate = 0.18) Then
+                tableIndex = Normal18
+            ElseIf (Rate = 0.19) Then
+                tableIndex = Normal19
+            ElseIf (Rate = 0.2) Then
+                tableIndex = Normal20
+            ElseIf (Rate = 0.21) Then
+                tableIndex = Normal21
+            ElseIf (Rate = 0.22) Then
+                tableIndex = Normal22
+            ElseIf (Rate = 0.23) Then
+                tableIndex = Normal23
+            ElseIf (Rate = 0.24) Then
+                tableIndex = Normal24
+            End If
+        Else
+            If (Rate = 0.03) Then
+                tableIndex = Leap3
+            ElseIf (Rate = 0.04) Then
+                tableIndex = Leap4
+            ElseIf (Rate = 0.05) Then
+                tableIndex = Leap5
+            ElseIf (Rate = 0.06) Then
+                tableIndex = Leap6
+            ElseIf (Rate = 0.07) Then
+                tableIndex = Leap7
+            ElseIf (Rate = 0.08) Then
+                tableIndex = Leap8
+            ElseIf (Rate = 0.09) Then
+                tableIndex = Leap9
+            ElseIf (Rate = 0.1) Then
+                tableIndex = Leap10
+            ElseIf (Rate = 0.11) Then
+                tableIndex = Leap11
+            ElseIf (Rate = 0.12) Then
+                tableIndex = Leap12
+            ElseIf (Rate = 0.13) Then
+                tableIndex = Leap13
+            ElseIf (Rate = 0.14) Then
+                tableIndex = Leap14
+            ElseIf (Rate = 0.15) Then
+                tableIndex = Leap15
+            ElseIf (Rate = 0.16) Then
+                tableIndex = Leap16
+            ElseIf (Rate = 0.17) Then
+                tableIndex = Leap17
+            ElseIf (Rate = 0.18) Then
+                tableIndex = Leap18
+            ElseIf (Rate = 0.19) Then
+                tableIndex = Leap19
+            ElseIf (Rate = 0.2) Then
+                tableIndex = Leap20
+            ElseIf (Rate = 0.21) Then
+                tableIndex = Leap21
+            ElseIf (Rate = 0.22) Then
+                tableIndex = Leap22
+            ElseIf (Rate = 0.23) Then
+                tableIndex = Leap23
+            ElseIf (Rate = 0.24) Then
+                tableIndex = Leap24
+            End If
+        End If
+
+        findTableIndex = tableIndex
+
+End Function
+
+Sub smallCalc()
+
+Dim Principal As Double, LossDate As Date, RecoveryDate As Date, PaymentDate As Date, Amount As Double
+
+Dim CalcSheet As Worksheet
+
+Set CalcSheet = ActiveWorkbook.Worksheets("Calc")
+
+Principal = CalcSheet.Range("H5")
+LossDate = CDate(CalcSheet.Range("H7"))
+RecoveryDate = CDate(CalcSheet.Range("H9"))
+PaymentDate = CDate(CalcSheet.Range("H11"))
+
+CalcSheet.Range("N5") = Principal
+CalcSheet.Range("N6") = LossDate
+CalcSheet.Range("N7") = RecoveryDate
+CalcSheet.Range("N8") = PaymentDate
+
+Amount = doCalc(Principal, LossDate, RecoveryDate, PaymentDate)
+
+CalcSheet.Range("N9") = Amount
+
+
+End Sub
+
+Sub LargeCalc()
+
+Dim Principal As Double, LossDate As Date, RecoveryDate As Date, PaymentDate As Date, Amount As Double
+
+Dim LargeCalc As Worksheet
+
+Set LargeCalc = ActiveWorkbook.Worksheets("LargeCalc")
+
+LargeCalc.Range("A1") = "Principal"
+LargeCalc.Range("B1") = "Loss Date"
+LargeCalc.Range("C1") = "Recovery Date"
+LargeCalc.Range("D1") = "Payment Date"
+LargeCalc.Range("E1") = "Amount Due"
+
+For i = 2 To 50000
+
+    If (LargeCalc.Range("A" & i) = Empty) Then Exit For
+    
+    Principal = LargeCalc.Range("A" & i)
+    LossDate = CDate(LargeCalc.Range("B" & i))
+    RecoveryDate = CDate(LargeCalc.Range("C" & i))
+    PaymentDate = CDate(LargeCalc.Range("D" & i))
+    
+    Amount = doCalc(Principal, LossDate, RecoveryDate, PaymentDate)
+
+    LargeCalc.Range("E" & i) = Amount
+
+Next i
+
+End
+
+End Sub
