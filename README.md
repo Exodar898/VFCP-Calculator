@@ -4,10 +4,11 @@
 Principal |	Loss Date |	Recovery Date |	Payment Date
 In either the Calc or LargeCalc Tab.
 Use the Calc tab for an individual, use the largeCalc tab for multiple participants.
-# When ready, hit alt+f8 and run either smallCalc or LargeCalc for individuals or group calculations respectively.
+When ready, hit alt+f8 and run either smallCalc or LargeCalc for individuals or group calculations respectively.
 In the Calc tab there is a full table of potential entries with correct values already filled in.
 You can also individually check new entries against the calculator found at the link provided below.
 
+# Background Information
 
 This is an Excel VBA Project which was created to complete calculations for the IRS Voluntary Fiduciary Correction Program.
 Retirement plan Fiduciaries routinely fail to invest clients' funds into the correct sources by the required dates.
