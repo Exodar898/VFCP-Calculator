@@ -9,4 +9,8 @@ The firm I worked for required a settlement to be calculated in which several th
 
 Thus, I was asked to create this project which perfectly follows the rules of the VFCP but also allows an indeterminant amount of participants to be enterred at once.
 
+For your convenience, I have extracted the VBA code and included it as a separate file, just in case you didn't feel like opening a macro enabled excel project from somebody who you've never met.
+
+In addition, I have included to source files for all data pulled as part of the project. Most of the data had to be pulled through HTML extractions of the dol.gov website listed below. This meant that I had to spend a fair amount of time grooming the data and creating a manual index. Luckily, as new data comes in the project is structured such that only three or four lines of data need to be added each year, simply at the top of the table in the VFCP-Table tab.
+
 For more information on the Voluntary Fiduciary Correction Program, see https://www.dol.gov/agencies/ebsa/employers-and-advisers/plan-administration-and-compliance/correction-programs/vfcp
