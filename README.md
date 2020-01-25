@@ -1,7 +1,11 @@
 # VFCP-Calculator
 
 # To run the project, provide : 
-Principal |	Loss Date |	Recovery Date |	Payment Date
+a) Principal 
+b) Loss Date 
+c) Recovery Date 
+d) Payment Date
+
 In either the Calc or LargeCalc Tab.
 Use the Calc tab for an individual, use the largeCalc tab for multiple participants.
 When ready, hit alt+f8 and run either smallCalc or LargeCalc for individuals or group calculations respectively.
